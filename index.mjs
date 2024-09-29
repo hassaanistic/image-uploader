@@ -1,96 +1,66 @@
 import express from 'express';
 import fileUpload from 'express-fileupload';
 import cors from 'cors';
-import { google } from 'googleapis';
-import bufferToStream from 'buffer-to-stream';
+import { v2 as cloudinary } from 'cloudinary';
+import { PassThrough } from 'stream';
 import fetch from 'node-fetch';
 
-// Initialize Express
 const app = express();
 
-// Enable CORS for Shopify domain
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST'],
   credentials: true,
 }));
 
-// Middleware to handle file uploads
 app.use(fileUpload({
   createParentPath: true
 }));
 
-// Middleware to handle JSON request bodies
 app.use(express.json());
 
-// Google Drive authentication
-const auth = new google.auth.GoogleAuth({
-  keyFile: './credentials.json',
-  scopes: ['https://www.googleapis.com/auth/drive.file'],
+cloudinary.config({
+  cloud_name: 'dhuoha7uv',      
+  api_key: '541296591379674',            
+  api_secret: 'N17jsCn6WzkOmMRK_D0CvQKPngY'       
 });
 
-const drive = google.drive({ version: 'v3', auth });
-
-// Function to upload image to Google Drive
-async function uploadToGoogleDrive(fileBuffer, fileName, mimeType) {
-  try {
-    console.log("here1");
-    const fileMetadata = {
-      name: fileName,
-      parents: ['14tJhTAbT76hLLVuPXJmo1iMJnO7xEZ9J'], // Replace with your folder ID
-    };
-    console.log("here2" , fileMetadata);
+// Function to upload image to Cloudinary
+async function uploadToCloudinary(fileBuffer) {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { resource_type: 'image' },
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+        resolve(result.secure_url);
+      }
+    );
     
-    const media = {
-      mimeType: mimeType,
-      body: bufferToStream(fileBuffer),
-    };
-    
-    console.log("here3" , media);
-
-    // Await the drive.files.create request
-    const response = await drive.files.create({
-      resource: fileMetadata,
-      media: media,
-      fields: 'id, webViewLink',
-    });
-
-
-    console.log("here4" , response.data);
-
-    // Return the webViewLink
-    return response.data.webViewLink;
-  } catch (error) {
-    console.error("Error uploading to Google Drive:", error);
-    throw error; // Propagate the error so it can be handled properly in the calling function
-  }
+    // Create a passthrough stream and pipe the buffer into it
+    const passthroughStream = new PassThrough();
+    passthroughStream.end(fileBuffer);
+    passthroughStream.pipe(uploadStream);
+  });
 }
 
-
 app.get('/', (req, res) => {
-  res.send('Shopify Image Uploader');
+  res.send('Shopify Image Uploader with Cloudinary');
 })
-// Combined endpoint to handle image upload and sending data to Google Sheets
+
 app.post('/submit-form', async (req, res) => {
   try {
-    // Check if a file has been uploaded
     if (!req.files || Object.keys(req.files).length === 0) {
       return res.status(400).json({ error: 'No files were uploaded.' });
     }
 
-    // Upload image to Google Drive
     const imageFile = req.files.image;
-    console.log("here")
-    const imageLink = await uploadToGoogleDrive(imageFile.data, imageFile.name, imageFile.mimetype);
+    const imageLink = await uploadToCloudinary(imageFile.data);
 
-  console.log(`Image link` + imageFile);
-  console.log(`Image link` + imageLink);
 
-    // Get form data (name, email)
     const { name, email } = req.body;
 
-
-    // Send the data to Google Sheets
     const googleSheetsResponse = await fetch('https://script.google.com/macros/s/AKfycbyDJLcU_3HzW4l5nqXmJF2EEZ1ZYiPpmx0PvYSEMc4laChO651VO6gT25P3-Lo4IDs29g/exec', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -103,7 +73,6 @@ app.post('/submit-form', async (req, res) => {
 
     const result = await googleSheetsResponse.text();
 
-    // Respond with success message and result from Google Sheets
     res.json({
       message: 'Form submitted successfully!',
       result,
@@ -114,7 +83,6 @@ app.post('/submit-form', async (req, res) => {
   }
 });
 
-// Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

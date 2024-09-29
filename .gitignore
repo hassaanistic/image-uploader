@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+/credentials.json
+/driveindex.js
 /.pnp
 .pnp.js
 .yarn/install-state.gz
