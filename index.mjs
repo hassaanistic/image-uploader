@@ -53,7 +53,10 @@ async function uploadToGoogleDrive(fileBuffer, fileName, mimeType) {
 }
 
 app.get('/', (req, res) => {
-  res.send('Shopify Image Uploader');
+  res.send('Shopify Image Uploader App');
+})
+app.get('/submit-dummy', (req, res) => {
+  res.send('Shopify Image Uploader App');
 })
 // Combined endpoint to handle image upload and sending data to Google Sheets
 app.post('/submit-form', async (req, res) => {
