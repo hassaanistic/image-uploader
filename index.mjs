@@ -33,30 +33,42 @@ const drive = google.drive({ version: 'v3', auth });
 
 // Function to upload image to Google Drive
 async function uploadToGoogleDrive(fileBuffer, fileName, mimeType) {
-  const fileMetadata = {
-    name: fileName,
-    parents: ['14tJhTAbT76hLLVuPXJmo1iMJnO7xEZ9J'], // Replace with your folder ID
-  };
+  try {
+    console.log("here1");
+    const fileMetadata = {
+      name: fileName,
+      parents: ['14tJhTAbT76hLLVuPXJmo1iMJnO7xEZ9J'], // Replace with your folder ID
+    };
+    console.log("here2" , fileMetadata);
+    
+    const media = {
+      mimeType: mimeType,
+      body: bufferToStream(fileBuffer),
+    };
+    
+    console.log("here3" , media);
 
-  const media = {
-    mimeType: mimeType,
-    body: bufferToStream(fileBuffer),
-  };
+    // Await the drive.files.create request
+    const response = await drive.files.create({
+      resource: fileMetadata,
+      media: media,
+      fields: 'id, webViewLink',
+    });
 
-  const response = await drive.files.create({
-    resource: fileMetadata,
-    media: media,
-    fields: 'id, webViewLink',
-  });
 
-  return response.data.webViewLink;
+    console.log("here4" , response.data);
+
+    // Return the webViewLink
+    return response.data.webViewLink;
+  } catch (error) {
+    console.error("Error uploading to Google Drive:", error);
+    throw error; // Propagate the error so it can be handled properly in the calling function
+  }
 }
 
+
 app.get('/', (req, res) => {
-  res.send('Shopify Image Uploader App');
-})
-app.get('/submit-dummy', (req, res) => {
-  res.send('Shopify Image Uploader Apps');
+  res.send('Shopify Image Uploader');
 })
 // Combined endpoint to handle image upload and sending data to Google Sheets
 app.post('/submit-form', async (req, res) => {
@@ -68,7 +80,11 @@ app.post('/submit-form', async (req, res) => {
 
     // Upload image to Google Drive
     const imageFile = req.files.image;
+    console.log("here")
     const imageLink = await uploadToGoogleDrive(imageFile.data, imageFile.name, imageFile.mimetype);
+
+  console.log(`Image link` + imageFile);
+  console.log(`Image link` + imageLink);
 
     // Get form data (name, email)
     const { name, email } = req.body;
